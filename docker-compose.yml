@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  userservice:
+    build:
+      context: ./UserService/bin/Release/net8.0
+    container_name: userservice
+    ports:
+      - "5000:80"
+    depends_on:
+      - rabbitmq
+      - sqlserver
+    environment:
+      # Update connection string to match your SQL Server setup
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=UserDB;User Id=sa;Password=YourStrong!Passw0rd;
+
+  notificationservice:
+    build:
+      context: ./NotificationService/bin/Release/net8.0
+    container_name: notificationservice
+    ports:
+      - "5001:80"
+    depends_on:
+      - rabbitmq
+      - sqlserver
+    environment:
+      # Update these if your service reads env variables for RabbitMQ/DB
+      - RabbitMQ__Host=rabbitmq
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=UserDB;User Id=sa;Password=YourStrong!Passw0rd;
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # Messaging port
+      - "15672:15672" # Management UI
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      SA_PASSWORD: "YourStrong!Passw0rd"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"

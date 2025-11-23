@@ -1,0 +1,12 @@
+# Base image with .NET runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+
+# Copy all files from release folder
+COPY ./bin/Release/net8.0/ ./
+
+# Expose API port
+EXPOSE 80
+
+# Run the service
+ENTRYPOINT ["dotnet", "UserService.dll"]
