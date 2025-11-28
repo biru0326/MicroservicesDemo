@@ -1,24 +1,22 @@
-﻿using NotificationService.Services;
+using NotificationService.Services;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace NotificationService.Messaging
-{
-    public class RabbitMQSubscriber : IDisposable
-    {
-        private readonly INotificationService _service;
+namespace NotificationService.Messaging {
+    public class RabbitMQSubscriber : IDisposable {
+        private readonly IServiceProvider _serviceProvider; // Use IServiceProvider instead of INotificationService
         private IConnection _connection;
         private IModel _channel;
 
-        public RabbitMQSubscriber(INotificationService service)
-        {
-            _service = service;
+        public RabbitMQSubscriber(IServiceProvider serviceProvider) {
+            _serviceProvider = serviceProvider;
         }
 
-        public void Start()
-        {
+        public void Start() {
             var factory = new ConnectionFactory() { HostName = "localhost" };
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
@@ -28,15 +26,17 @@ namespace NotificationService.Messaging
             _channel.QueueBind(queue: queueName, exchange: "user_exchange", routingKey: "");
 
             var consumer = new EventingBasicConsumer(_channel);
-            consumer.Received += (model, ea) =>
-            {
+            consumer.Received += (model, ea) => {
                 var body = ea.Body.ToArray();
                 var message = Encoding.UTF8.GetString(body);
                 var user = JsonSerializer.Deserialize<UserMessage>(message);
 
-                if (user != null)
-                {
-                    _service.CreateNotification(user.Id, $"Welcome {user.Name}!");
+                if (user != null) {
+                    // Resolve scoped service inside a scope
+                    using var scope = _serviceProvider.CreateScope();
+                    var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+                    notificationService.CreateNotification(user.Id, $"Welcome {user.Name}!");
                     Console.WriteLine($"[NotificationService] Notification created for {user.Name}");
                 }
             };
@@ -45,14 +45,12 @@ namespace NotificationService.Messaging
             Console.WriteLine("[NotificationService] Listening for UserCreatedEvent...");
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
             _channel?.Close();
             _connection?.Close();
         }
 
-        private class UserMessage
-        {
+        private class UserMessage {
             public int Id { get; set; }
             public string Name { get; set; }
         }
