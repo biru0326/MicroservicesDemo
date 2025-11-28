@@ -12,8 +12,8 @@ using NotificationService.Data;
 namespace NotificationService.Migrations
 {
     [DbContext(typeof(NotificationDbContext))]
-    [Migration("20251128094040_version1")]
-    partial class version1
+    [Migration("20251128100728_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
