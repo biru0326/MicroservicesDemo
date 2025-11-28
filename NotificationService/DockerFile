@@ -1,8 +1,48 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+# ================================
+# Stage 1 — Build
+# ================================
+FROM mcr.microsoft.com/dotnet/sdk:8.0.100 AS build
+WORKDIR /src
+
+# Copy solution and csproj files first for caching
+COPY ["MicroservicesDemo.sln", "./"]
+COPY ["NotificationService/NotificationService.csproj", "NotificationService/"]
+COPY ["UserService/UserService.csproj", "UserService/"]
+
+# Restore only NotificationService
+RUN dotnet restore "NotificationService/NotificationService.csproj"
+
+# Copy full source
+COPY . .
+
+# Publish application
+WORKDIR /src/NotificationService
+RUN dotnet publish -c Release -o /app/publish \
+    --no-restore \
+    --self-contained false \
+    /p:PublishTrimmed=true \
+    /p:PublishReadyToRun=true
+
+# ================================
+# Stage 2 — Runtime
+# ================================
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.0-alpine3.18 AS final
 WORKDIR /app
 
-COPY ./bin/Release/net8.0/ ./
+# Reduce attack surface
+ENV DOTNET_EnableDiagnostics=0
 
-EXPOSE 80
+# Create non-root user
+RUN adduser -u 5678 --disabled-password --gecos "" appuser && \
+    chown -R appuser /app
+USER appuser
 
+# Expose port
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+# Copy app
+COPY --from=build /app/publish .
+
+# Start service
 ENTRYPOINT ["dotnet", "NotificationService.dll"]
